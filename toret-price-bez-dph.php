@@ -4,7 +4,7 @@
  * Plugin Name:       Toret Custom Price
  * Plugin URI:        http://toret.cz
  * Description:       Plugin pro zobrazení­ ceny s a bez DPH
- * Version:           1.1
+ * Version:           1.2
  * Author:            Vladislav Musílek
  * Author URI:        http://toret.cz
  * Text Domain:       toret-custom-price
@@ -134,15 +134,25 @@ function toret_price_for_variable_product( $price, $product ){
 		return $price;
 }
 function toret_get_variation_prices( $product, $display = false, $tax_mod = 'incl' ) {
+				$version = toret_check_wc_version();
+
 				$prices         = array();
 				$regular_prices = array();
 				$sale_prices    = array();
 				$variation_ids  = $product->get_children( true );
 				foreach ( $variation_ids as $variation_id ) {
-					if ( $variation = $product->get_child( $variation_id ) ) {
-						$price         = $variation->price;
-						$regular_price = $variation->regular_price;
-						$sale_price    = $variation->sale_price;
+					if ( $variation = wc_get_product( $variation_id ) ) {
+
+						if( $version === true ){
+							$price         = $variation->get_price();
+							$regular_price = $variation->get_regular_price();
+							$sale_price    = $variation->get_sale_price();
+						}else{
+							$price         = $variation->price;
+							$regular_price = $variation->regular_price;
+							$sale_price    = $variation->sale_price;
+						}
+
 						// Skip empty prices
 						if ( '' === $price ) {
 							continue;
@@ -152,17 +162,38 @@ function toret_get_variation_prices( $product, $display = false, $tax_mod = 'inc
 							$sale_price = $regular_price;
 						}
 						// If we are getting prices for display, we need to account for taxes
-						if ( $display ) {
-							if ( 'incl' === $tax_mod ) {
-								$price         = '' === $price ? ''         : $variation->get_price_including_tax( 1, $price );
-								$regular_price = '' === $regular_price ? '' : $variation->get_price_including_tax( 1, $regular_price );
-								$sale_price    = '' === $sale_price ? ''    : $variation->get_price_including_tax( 1, $sale_price );
-							} else {
-								$price         = '' === $price ? ''         : $variation->get_price_excluding_tax( 1, $price );
-								$regular_price = '' === $regular_price ? '' : $variation->get_price_excluding_tax( 1, $regular_price );
-								$sale_price    = '' === $sale_price ? ''    : $variation->get_price_excluding_tax( 1, $sale_price );
+
+    					if( $version === true ){
+
+							if ( $display ) {
+								if ( 'incl' === $tax_mod ) {
+									$price         = '' === $price ? ''         : wc_get_price_including_tax( $variation, array( 'qty' => 1, 'price' => $price ) );
+									$regular_price = '' === $regular_price ? '' : wc_get_price_including_tax( $variation, array( 'qty' => 1, 'price' => $regular_price ) );
+									$sale_price    = '' === $sale_price ? ''    : wc_get_price_including_tax( $variation, array( 'qty' => 1, 'price' => $sale_price ) );
+								} else {
+									$price         = '' === $price ? ''         : wc_get_price_excluding_tax( $variation, array( 'qty' => 1, 'price' => $price ) );
+									$regular_price = '' === $regular_price ? '' : wc_get_price_excluding_tax( $variation, array( 'qty' => 1, 'price' => $regular_price ) );
+									$sale_price    = '' === $sale_price ? ''    : wc_get_price_excluding_tax( $variation, array( 'qty' => 1, 'price' => $sale_price ) );
+								}
 							}
-						}
+
+						}else{
+
+							if ( $display ) {
+								if ( 'incl' === $tax_mod ) {
+									$price         = '' === $price ? ''         : $variation->get_price_including_tax( 1, $price );
+									$regular_price = '' === $regular_price ? '' : $variation->get_price_including_tax( 1, $regular_price );
+									$sale_price    = '' === $sale_price ? ''    : $variation->get_price_including_tax( 1, $sale_price );
+								} else {
+									$price         = '' === $price ? ''         : $variation->get_price_excluding_tax( 1, $price );
+									$regular_price = '' === $regular_price ? '' : $variation->get_price_excluding_tax( 1, $regular_price );
+									$sale_price    = '' === $sale_price ? ''    : $variation->get_price_excluding_tax( 1, $sale_price );
+								}
+							}
+
+						}	
+
+
 						$prices[ $variation_id ]         = wc_format_decimal( $price, wc_get_price_decimals() );
 						$regular_prices[ $variation_id ] = wc_format_decimal( $regular_price, wc_get_price_decimals() );
 						$sale_prices[ $variation_id ]    = wc_format_decimal( $sale_price . '.00', wc_get_price_decimals() );
@@ -183,11 +214,24 @@ function toret_get_variation_prices( $product, $display = false, $tax_mod = 'inc
 	}
 add_action( 'woocommerce_variation_sale_price_html', 'toret_variation_sale_price', 99999, 2 );
 function toret_variation_sale_price( $price, $product){
-	$to   = $product->get_price_including_tax( 1, $product->get_price() ); 
-	$from = $product->get_price_including_tax( 1, $product->get_regular_price() );
-	$to_without   = $product->get_price_excluding_tax( 1, $product->get_price() ); 
-	$from_without = $product->get_price_excluding_tax( 1, $product->get_regular_price() );
+	$version = toret_check_wc_version();
+
+	 if( $version === true ){
+
+		$to   = wc_get_price_including_tax( $product, array( 'qty' => 1, 'price' => $product->get_price() ) );
+		$from = wc_get_price_including_tax( $product, array( 'qty' => 1, 'price' => $product->get_regular_price() ) );
+		$to_without   = wc_get_price_excluding_tax( $product, array( 'qty' => 1, 'price' => $product->get_price() ) );
+		$from_without = wc_get_price_excluding_tax( $product, array( 'qty' => 1, 'price' => $product->get_regular_price() ) );
+		
+	}else{
+
+		$to   = $product->get_price_including_tax( 1, $product->get_price() ); 
+		$from = $product->get_price_including_tax( 1, $product->get_regular_price() );
+		$to_without   = $product->get_price_excluding_tax( 1, $product->get_price() ); 
+		$from_without = $product->get_price_excluding_tax( 1, $product->get_regular_price() );
 	
+	}
+
 	$price = '<span class="custom-price-without-vat"><del>' . ( ( is_numeric( $from_without ) ) ? wc_price( $from_without ) : $from_without ) . ' bez DPH</del> <ins>' . ( ( is_numeric( $to_without ) ) ? wc_price( $to_without ) : $to_without ) . ' bez DPH</ins></span>';
 	$price .= '<br /><span class="custom-price-with-vat"><del>' . ( ( is_numeric( $from ) ) ? wc_price( $from ) : $from ) . ' vč DPH</del> <ins>' . ( ( is_numeric( $to ) ) ? wc_price( $to ) : $to ) . ' vč DPH</ins></span>';
 
@@ -195,9 +239,20 @@ function toret_variation_sale_price( $price, $product){
 }
 add_action( 'woocommerce_variation_price_html', 'toret_variation_price', 99999, 2 );
 function toret_variation_price( $price, $product){
-	$display_price_with    = $product->get_price_including_tax( 1, $product->get_price() );
-	$display_price_without = $product->get_price_excluding_tax( 1, $product->get_price() );
+	$version = toret_check_wc_version();
+
+	 if( $version === true ){
+
+		$display_price_with    = wc_get_price_including_tax( $product, array( 'qty' => 1, 'price' => $product->get_price() ) );
+		$display_price_without = wc_get_price_excluding_tax( $product, array( 'qty' => 1, 'price' => $product->get_price() ) );
+
+	}else{
+
+		$display_price_with    = $product->get_price_including_tax( 1, $product->get_price() );
+		$display_price_without = $product->get_price_excluding_tax( 1, $product->get_price() );
 	
+	}
+
 	$price = '<span class="custom-price-without-vat">' . wc_price( $display_price_without ) . ' bez DPH</span>';
 	$price .= '<br /><span class="custom-price-with-vat">' . wc_price( $display_price_with ) . ' vč DPH</span>';
 
